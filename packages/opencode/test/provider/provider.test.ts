@@ -455,6 +455,34 @@ it.instance(
 )
 
 it.instance(
+  "model tool-call parsers are selected explicitly",
+  Effect.gen(function* () {
+    const providers = yield* list
+    const models = providers[ProviderV2.ID.make("local")].models
+    expect(models.dots.toolCallParser).toBe("dots")
+    expect(models.hermes.toolCallParser).toBe("hermes")
+    expect(models.qwen.toolCallParser).toBe("qwen3_xml")
+    expect(models.plain.toolCallParser).toBeUndefined()
+  }),
+  {
+    config: {
+      provider: {
+        local: {
+          npm: "@ai-sdk/openai-compatible",
+          models: {
+            dots: { tool_call: true, tool_call_parser: "dots" },
+            hermes: { tool_call: true, tool_call_parser: "hermes" },
+            qwen: { tool_call: true, tool_call_parser: "qwen3_xml" },
+            plain: { tool_call: true },
+          },
+          options: { apiKey: "test-key", baseURL: "http://127.0.0.1:8000/v1" },
+        },
+      },
+    },
+  },
+)
+
+it.instance(
   "provider removed when all models filtered out",
   Effect.gen(function* () {
     const providers = yield* list

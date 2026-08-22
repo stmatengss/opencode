@@ -4,6 +4,7 @@ import { Schema } from "effect"
 import { PositiveInt } from "../../schema"
 
 export const ModelStatus = Schema.Literals(["alpha", "beta", "deprecated", "active"])
+export const ToolCallParser = Schema.Literals(["dots", "hermes", "qwen3_xml"])
 
 const InterleavedField = Schema.Union([
   Schema.Literals(["reasoning", "reasoning_content", "reasoning_text"]),
@@ -19,6 +20,9 @@ export const Model = Schema.Struct({
   reasoning: Schema.optional(Schema.Boolean),
   temperature: Schema.optional(Schema.Boolean),
   tool_call: Schema.optional(Schema.Boolean),
+  tool_call_parser: Schema.optional(ToolCallParser).annotate({
+    description: "Parse model-native text tool calls when the serving endpoint does not return structured tool calls",
+  }),
   interleaved: Schema.optional(
     Schema.Union([
       Schema.Boolean,

@@ -29,6 +29,7 @@ import * as OtelTracer from "@effect/opentelemetry/Tracer"
 import { LLMAISDK } from "./llm/ai-sdk"
 import { LLMNativeRuntime } from "./llm/native-runtime"
 import { LLMRequestPrep } from "./llm/request"
+import { ToolCallParser } from "./llm/tool-call-parser"
 
 export const OUTPUT_TOKEN_MAX = ProviderTransform.OUTPUT_TOKEN_MAX
 
@@ -249,6 +250,8 @@ const live: Layer.Layer<
           return {
             type: "native" as const,
             stream: native.stream,
+            tools: prepared.tools,
+            toolCallParser: input.model.toolCallParser,
           }
         }
         yield* Effect.logInfo("llm runtime selected", {
@@ -277,6 +280,8 @@ const live: Layer.Layer<
       // LLMAISDK.toLLMEvents below normalizes fullStream parts for the processor.
       return {
         type: "ai-sdk" as const,
+        tools: prepared.tools,
+        toolCallParser: input.model.toolCallParser,
         result: streamText({
           onError(error) {
             bridge.fork(
@@ -365,17 +370,22 @@ const live: Layer.Layer<
 
             const result = yield* run({ ...input, abort: ctrl.signal })
 
-            if (result.type === "native") return result.stream
+            const events = (() => {
+              if (result.type === "native") return result.stream
+              const state = LLMAISDK.adapterState()
+              return Stream.fromAsyncIterable(result.result.fullStream, (e) =>
+                e instanceof Error ? e : new Error(String(e)),
+              ).pipe(
+                Stream.mapEffect((event) => LLMAISDK.toLLMEvents(state, event)),
+                Stream.flatMap((events) => Stream.fromIterable(events)),
+              )
+            })()
 
-            // Adapter seam: both runtimes expose the same LLMEvent stream. Native
-            // already returns one; AI SDK streams are converted here.
-            const state = LLMAISDK.adapterState()
-            return Stream.fromAsyncIterable(result.result.fullStream, (e) =>
-              e instanceof Error ? e : new Error(String(e)),
-            ).pipe(
-              Stream.mapEffect((event) => LLMAISDK.toLLMEvents(state, event)),
-              Stream.flatMap((events) => Stream.fromIterable(events)),
-            )
+            return ToolCallParser.transform({
+              id: result.toolCallParser,
+              tools: result.tools,
+              stream: events,
+            })
           }),
         ),
       )

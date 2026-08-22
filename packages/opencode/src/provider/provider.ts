@@ -1,6 +1,7 @@
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import os from "os"
 import { ConfigV1 } from "@opencode-ai/core/v1/config/config"
+import { ConfigProviderV1 } from "@opencode-ai/core/v1/config/provider"
 import fuzzysort from "fuzzysort"
 import { Config } from "@/config/config"
 import { mapValues, mergeDeep, omit, pickBy, sortBy } from "remeda"
@@ -1057,6 +1058,7 @@ export const Model = Schema.Struct({
   name: Schema.String,
   family: optional(Schema.String),
   capabilities: ProviderCapabilities,
+  toolCallParser: optional(ConfigProviderV1.ToolCallParser),
   cost: ProviderCost,
   limit: ProviderLimit,
   status: ModelStatus,
@@ -1521,6 +1523,7 @@ const layer = Layer.effect(
                     ? { field: "reasoning_content" }
                     : false),
               },
+              toolCallParser: model.tool_call_parser ?? existingModel?.toolCallParser,
               cost: {
                 input: model?.cost?.input ?? existingModel?.cost?.input ?? 0,
                 output: model?.cost?.output ?? existingModel?.cost?.output ?? 0,
